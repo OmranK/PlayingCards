@@ -8,46 +8,42 @@
 
 import UIKit
 
-class PlayingCardView: UIView {
+@IBDesignable class PlayingCardView: UIView {
     
-    var rank: Int = 5 { didSet { setNeedsDisplay(); setNeedsLayout() } }
-    var suit: String = "♠️" { didSet { setNeedsDisplay(); setNeedsLayout() } }
-    var isFaceUp: Bool = true { didSet { setNeedsDisplay(); setNeedsLayout() } }
+    // @IBInspectable shows variables in Interface Builder.
+    @IBInspectable var rank: Int = 13 { didSet { setNeedsDisplay(); setNeedsLayout() } }
+    @IBInspectable var suit: String = "♠️" { didSet { setNeedsDisplay(); setNeedsLayout() } }
+    @IBInspectable var isFaceUp: Bool = true { didSet { setNeedsDisplay(); setNeedsLayout() } }
     
-    // Call centeredAttributedString(_) function using rankString(_) function to get the Card's suit and rank in an NSAttributedString format for display.
-    private var cornerString: NSAttributedString {
-        return centeredAttributedString(rankString+"\n"+suit, fontSize: cornerFontSize)
-    }
     
-    // Takes string and adds font and paragraph Styles.
-    private func centeredAttributedString(_ string:String, fontSize: CGFloat) -> NSAttributedString {
-        var font = UIFont.preferredFont(forTextStyle: .body).withSize(fontSize)
-        font = UIFontMetrics(forTextStyle: .title1).scaledFont(for: font)         //Always use for Display Size option in accessibility.
-        let paragraphStyle = NSMutableParagraphStyle()
-        paragraphStyle.alignment = .center
-        return NSAttributedString(string: string, attributes: [.paragraphStyle : paragraphStyle, .font : font])
-    }
-    
-// MARK: Create the two card face Labels.
-    
-    // Lazy labels get initialized using createCornerLabel() when called.
+    // Create the two card face Labels. Lazy variables get initialized only when createCornerLabel() is called.
     private lazy var upperLeftCornerLabel = createCornerLabel()
     private lazy var lowerRightCornerLabel = createCornerLabel()
     
-    // Function: Sets up Label
-    private func createCornerLabel() -> UILabel {
-        let label = UILabel()
-        label.numberOfLines = 0
-        addSubview(label)
-        return label
+    override func draw(_ rect: CGRect) {
+        let roundedRect = UIBezierPath(roundedRect: bounds, cornerRadius: cornerRadius)
+        roundedRect.addClip()
+        UIColor.white.setFill()
+        roundedRect.fill()
+        
+        if isFaceUp {
+            if let faceCardImage = UIImage(named: rankString+suit, in: Bundle(for: self.classForCoder), compatibleWith: traitCollection){
+                faceCardImage.draw(in: bounds.zoom(by: faceCardScale))
+            } else {
+                drawPips()
+            }
+        }
     }
     
-    //
-    private func configureCornerLabel(_ label: UILabel) {
-        label.attributedText = cornerString
-        label.frame.size = CGSize.zero // always call before sizeToFit()
-        label.sizeToFit()
-        label.isHidden = !isFaceUp
+    // Gesture Recognizer handler to adjust the faceCard image's size.
+    var faceCardScale: CGFloat = DisplayRatio.faceCardImageSizeToBounds { didSet { setNeedsDisplay() } }
+    @objc func adjustFaceCardScale(byHandlingGestureRecognizedBy recognizer: UIPinchGestureRecognizer) {
+        switch recognizer.state {
+        case .changed, .ended:
+            faceCardScale *= recognizer.scale
+            recognizer.scale = 1.0
+        default: break
+        }
     }
     
     // Redraws everything and resets the layout when DisplaySizes option in accessibility is changed.
@@ -72,7 +68,28 @@ class PlayingCardView: UIView {
             .offsetBy(dx: -cornerOffset, dy: -cornerOffset)
             .offsetBy(dx: -lowerRightCornerLabel.frame.width, dy: -lowerRightCornerLabel.frame.height)
     }
+}
+
+
+
+
+// MARK: Extension sets up all Labels
+extension PlayingCardView {
+    // Function: Sets up Label
+    private func createCornerLabel() -> UILabel {
+        let label = UILabel()
+        label.numberOfLines = 0
+        addSubview(label)
+        return label
+    }
     
+    //
+    private func configureCornerLabel(_ label: UILabel) {
+        label.attributedText = cornerString
+        label.frame.size = CGSize.zero // always call before sizeToFit()
+        label.sizeToFit()
+        label.isHidden = !isFaceUp
+    }
     
     private func drawPips() {
         let pipsPerRowForRank = [[0], [1], [1,1], [1,1,1,], [2,2], [2,1,2], [2,2,2], [2,1,2,2], [2,2,2,2], [2,2,1,2,2,], [2,2,2,2,2] ]
@@ -86,7 +103,7 @@ class PlayingCardView: UIView {
             let probablyOkayPipString = centeredAttributedString(suit, fontSize: probablyOkayPipStringFontSize)
             if probablyOkayPipString.size().width > (pipRect.size.width / maxHorizontalPipCount) {
                 return centeredAttributedString(suit, fontSize: probablyOkayPipStringFontSize /
-                    (probablyOkayPipString.size().width / (pipRect.size.width / maxHorizontalPipCount)))
+                    (probablyOkayPipString.size().width / (pipRect.size.width / maxVerticalPipCount)))
             } else {
                 return probablyOkayPipString
             }
@@ -111,27 +128,10 @@ class PlayingCardView: UIView {
             }
         }
     }
-    
-    
-    override func draw(_ rect: CGRect) {
-        // Drawing Code
-        let roundedRect = UIBezierPath(roundedRect: bounds, cornerRadius: cornerRadius)
-        roundedRect.addClip()
-        UIColor.white.setFill()
-        roundedRect.fill()
-        
-        if let faceCardImage = UIImage(named: rankString+suit) {
-            faceCardImage.draw(in: bounds.zoom(by: DisplayRatio.faceCardImageSizeToBounds))
-        } else {
-            drawPips()
-        }
-    }
-    
-    
-    
-    
 }
 
+
+// MARK: Extension containing size, ratio, offset and rank variables.
 extension PlayingCardView {
     private struct DisplayRatio {
         static let cornerFontSizeToBoundsHeight: CGFloat = 0.085
@@ -149,7 +149,7 @@ extension PlayingCardView {
     }
     
     private var cornerFontSize: CGFloat {
-        return self.bounds.height * DisplayRatio.cornerFontSizeToBoundsHeight
+        return bounds.size.height * DisplayRatio.cornerFontSizeToBoundsHeight
     }
     
     private var rankString: String {
@@ -162,15 +162,31 @@ extension PlayingCardView {
         default: return "?"
         }
     }
+    
+    // Call centeredAttributedString(_) function using rankString(_) function to get the Card's suit and rank in an NSAttributedString format for display.
+    private var cornerString: NSAttributedString {
+        return centeredAttributedString(rankString + "\n" + suit, fontSize: cornerFontSize)
+    }
+    
+    // Takes string and adds font and paragraph Styles.
+    private func centeredAttributedString(_ string:String, fontSize: CGFloat) -> NSAttributedString {
+        var font = UIFont.preferredFont(forTextStyle: .largeTitle).withSize(fontSize)
+        font = UIFontMetrics(forTextStyle: .largeTitle).scaledFont(for: font)  //Always use for Display Size option in accessibility.
+        let paragraphStyle = NSMutableParagraphStyle()
+        paragraphStyle.alignment = .center
+        return NSAttributedString(string: string, attributes: [.paragraphStyle : paragraphStyle, .font : font])
+    }
+    
 }
 
+// MARK: Ease of use extension on CGRect.
 extension CGRect {
     var leftHalf: CGRect {
-        return CGRect(x: minX, y: minY, width: width/2, height: height/2)
+        return CGRect(x: minX, y: minY, width: width/2, height: height)
     }
     
     var rightHalf: CGRect {
-        return CGRect(x: minX, y: minY, width: width/2, height: height/2)
+        return CGRect(x: midX, y: minY, width: width/2, height: height)
     }
     
     func inset(by size: CGRect) -> CGRect {
@@ -188,14 +204,15 @@ extension CGRect {
     }
 }
 
+// MARK: Ease of use extension on CGPoint.
 extension CGPoint {
     func offsetBy(dx: CGFloat, dy: CGFloat) -> CGPoint{
-        return CGPoint(x: x + dx, y: y + dy)
+        return CGPoint(x: x+dx, y: y+dy)
     }
 }
-        
-        
-        // Using context
+
+
+// Using context
 //        if let context = UIGraphicsGetCurrentContext() { // Cant draw in draw rect without context.
 //            context.addArc(center: CGPoint(x: bounds.midX, y: bounds.midY), radius: 100, startAngle: 0, endAngle: 2*CGFloat.pi, clockwise: true)
 //            context.setLineWidth(5.0)
@@ -205,7 +222,7 @@ extension CGPoint {
 //            context.fillPath()
 //        }
 
-        // Using UIBezierPath
+// Using UIBezierPath
 //        let path = UIBezierPath()
 //        path.addArc(withCenter: CGPoint(x: bounds.midX, y: bounds.midY), radius: 100, startAngle: 0, endAngle: 2*CGFloat.pi, clockwise: true)
 //        path.lineWidth = 0.5
@@ -213,6 +230,5 @@ extension CGPoint {
 //        UIColor.red.setStroke()
 //        path.stroke()
 //        path.fill()
-        
-        
+
 

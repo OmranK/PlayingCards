@@ -2,12 +2,12 @@
   "images" : [
     {
       "idiom" : "universal",
-      "filename" : "J♠.png",
+      "filename" : "stanford.png",
       "scale" : "1x"
     },
     {
       "idiom" : "universal",
-      "filename" : "J♠@2x.png",
+      "filename" : "stanford-tree.png",
       "scale" : "2x"
     },
     {
